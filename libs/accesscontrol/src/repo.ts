@@ -20,7 +20,7 @@ type DeleteAccess<ResourceMap extends Record<string, any>> = {
   [K in keyof ResourceMap]: <T = ResourceMap[K]>(id: number | string) => Promise<T | void | undefined>
 }
 
-type ForUser<User, ResourceMap extends Record<string, any>> = {
+type ForUser<ResourceMap extends Record<string, any>> = {
   create: CreateAccess<ResourceMap>;
   read: ReadAccess<ResourceMap>;
   update: UpdateAccess<ResourceMap>;
@@ -54,7 +54,7 @@ export class ProtectedRepository<User, ResourceMap extends Record<string, any>, 
     })
   }
 
-  for(user: User): ForUser<User, ResourceMap> {
+  for(user: User): ForUser<ResourceMap> {
     return {
       create: new Proxy({} as CreateAccess<ResourceMap>, {
         get: <K extends Extract<keyof ResourceMap, string>>(target: CreateAccess<ResourceMap>, property: K) => {
