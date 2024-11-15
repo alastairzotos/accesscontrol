@@ -2,30 +2,29 @@ import { AccessControl, AuthAction } from "./ac";
 
 type ReadQuery<T> = number | string | (() => Promise<T>);
 
-type CreateAccess<User, ResourceMap extends Record<string, any>> = {
-  [K in keyof ResourceMap]: <T extends ResourceMap[K] = ResourceMap[K]>(values: Partial<T>) => {
-    for: (user: User) => Promise<T | undefined>;
-  }
+type CreateAccess<ResourceMap extends Record<string, any>> = {
+  [K in keyof ResourceMap]: <T extends ResourceMap[K] = ResourceMap[K]>(values: Partial<T>) => Promise<T | undefined>
 }
 
-type ReadAccess<User, ResourceMap extends Record<string, any>> = {
-  [K in keyof ResourceMap]: <T extends ResourceMap[K] = ResourceMap[K]>(query: ReadQuery<T>) => {
-    for: (user: User) => Promise<T | undefined>;
-  }
+type ReadAccess<ResourceMap extends Record<string, any>> = {
+  [K in keyof ResourceMap]: <T extends ResourceMap[K] = ResourceMap[K]>(query: ReadQuery<T>) => Promise<T | undefined>
 }
 
-type UpdateAccess<User, ResourceMap extends Record<string, any>> = {
+type UpdateAccess<ResourceMap extends Record<string, any>> = {
   [K in keyof ResourceMap]: <T extends ResourceMap[K] = ResourceMap[K]>(id: number | string) => {
-    for: (user: User) => {
-      with: (values: Partial<T>) => Promise<T | undefined>
-    };
+    with: (values: Partial<T>) => Promise<T | undefined>
   }
 }
 
-type DeleteAccess<User, ResourceMap extends Record<string, any>> = {
-  [K in keyof ResourceMap]: <T = ResourceMap[K]>(id: number | string) => {
-    for: (user: User) => Promise<T | void | undefined>;
-  }
+type DeleteAccess<ResourceMap extends Record<string, any>> = {
+  [K in keyof ResourceMap]: <T = ResourceMap[K]>(id: number | string) => Promise<T | void | undefined>
+}
+
+type ForUser<User, ResourceMap extends Record<string, any>> = {
+  create: CreateAccess<ResourceMap>;
+  read: ReadAccess<ResourceMap>;
+  update: UpdateAccess<ResourceMap>;
+  delete: DeleteAccess<ResourceMap>;
 }
 
 type ProtectedConfig<User, ResourceMap extends Record<string, any>, Roles extends string> = {
@@ -55,66 +54,61 @@ export class ProtectedRepository<User, ResourceMap extends Record<string, any>, 
     })
   }
 
-  create = new Proxy({} as CreateAccess<User, ResourceMap>, {
-    get: <K extends Extract<keyof ResourceMap, string>>(target: CreateAccess<User, ResourceMap>, property: K) => {
-      if (!(property in target)) {
-        target[property] = (value: Partial<ResourceMap[K]>) => ({
-          for: async (user: User) => {
-            await this.can(user, 'create', property);
-            return await this._config?.defaultCreate(property, value);
-          }
-        });
-      }
-
-      return target[property];
-    }
-  })
-
-  read = new Proxy({} as ReadAccess<User, ResourceMap>, {
-    get: <K extends Extract<keyof ResourceMap, string>>(target: ReadAccess<User, ResourceMap>, property: K) => {
-      if (!(property in target)) {
-        target[property] = (query: ReadQuery<ResourceMap[K]>) => ({
-          for: async (user: User) => {
-            return await this.can(user, 'read', property, query);
-          }
-        });
-      }
-
-      return target[property];
-    }
-  })
-
-  update = new Proxy({} as UpdateAccess<User, ResourceMap>, {
-    get: <K extends Extract<keyof ResourceMap, string>>(target: UpdateAccess<User, ResourceMap>, property: K) => {
-      if (!(property in target)) {
-        target[property] = (id: number | string) => ({
-          for: (user: User) => ({
-            with: async (values: Partial<ResourceMap[K]>) => {
-              await this.can(user, 'update', property, id);
-              return await this._config?.defaultUpdate(property, id, values);
+  for(user: User): ForUser<User, ResourceMap> {
+    return {
+      create: new Proxy({} as CreateAccess<ResourceMap>, {
+        get: <K extends Extract<keyof ResourceMap, string>>(target: CreateAccess<ResourceMap>, property: K) => {
+          if (!(property in target)) {
+            target[property] = async (value: Partial<ResourceMap[K]>) => {
+              await this.can(user, 'create', property);
+              return await this._config?.defaultCreate(property, value);
             }
-          })
-        })
-      }
-
-      return target[property];
-    }
-  })
-
-  delete = new Proxy({} as DeleteAccess<User, ResourceMap>, {
-    get: <K extends Extract<keyof ResourceMap, string>>(target: DeleteAccess<User, ResourceMap>, property: K) => {
-      if (!(property in target)) {
-        target[property] = (id: number | string) => ({
-          for: async (user: User) => {
-            await this.can(user, 'delete', property, id);
-            return await this._config?.defaultDelete(property, id);
           }
-        });
-      }
+          return target[property];
+        }
+      }),
 
-      return target[property];
-    }
-  })
+      read: new Proxy({} as ReadAccess<ResourceMap>, {
+        get: <K extends Extract<keyof ResourceMap, string>>(target: ReadAccess<ResourceMap>, property: K) => {
+          if (!(property in target)) {
+            target[property] = async (query: ReadQuery<ResourceMap[K]>) => {
+              return await this.can(user, 'read', property, query);
+            };
+          }
+
+          return target[property];
+        }
+      }),
+
+      update: new Proxy({} as UpdateAccess<ResourceMap>, {
+        get: <K extends Extract<keyof ResourceMap, string>>(target: UpdateAccess<ResourceMap>, property: K) => {
+          if (!(property in target)) {
+            target[property] = (id: number | string) => ({
+              with: async (values: Partial<ResourceMap[K]>) => {
+                await this.can(user, 'update', property, id);
+                return await this._config?.defaultUpdate(property, id, values);
+              }
+            })
+          }
+
+          return target[property];
+        }
+      }),
+
+      delete: new Proxy({} as DeleteAccess<ResourceMap>, {
+        get: <K extends Extract<keyof ResourceMap, string>>(target: DeleteAccess<ResourceMap>, property: K) => {
+          if (!(property in target)) {
+            target[property] = async (id: number | string) => {
+              await this.can(user, 'delete', property, id);
+              return await this._config?.defaultDelete(property, id);
+            };
+          }
+
+          return target[property];
+        }
+      })
+    };
+  }
 
   async can<K extends keyof ResourceMap>(
     user: User,
@@ -152,7 +146,7 @@ export class ProtectedRepository<User, ResourceMap extends Record<string, any>, 
       if (!canAccess) {
         this._throw403?.(`User cannot ${action} resource ${resourceType}[${errorId}]`);
       }
-      
+
       return resource;
     }
   }

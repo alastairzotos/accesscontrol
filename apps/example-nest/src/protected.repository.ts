@@ -4,7 +4,7 @@ import { PostSchema, User, UserRole } from "./types";
 import { MockDb } from "./mockDb";
 
 export type ResourceMap = {
-  posts: PostSchema;
+  post: PostSchema;
 };
 
 export class ProtectedRepo extends ProtectedRepository<User, ResourceMap, UserRole> {
@@ -16,7 +16,7 @@ export class ProtectedRepo extends ProtectedRepository<User, ResourceMap, UserRo
     const ac = this.createConfig();
 
     ac.grant('user')
-      .manageOwn('posts')
+      .manageOwn('post');
   }
 
   private createConfig() {

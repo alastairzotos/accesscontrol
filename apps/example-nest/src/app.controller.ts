@@ -1,5 +1,5 @@
 import { Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { AppService } from './app.service';
+import { AppRepo } from './app.repository';
 import { User } from './types';
 
 const user: User = {
@@ -9,11 +9,11 @@ const user: User = {
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly appRepo: AppRepo) {}
 
   @Post()
   async create() {
-    return await this.appService.createPost(user, {
+    return await this.appRepo.createPost(user, {
       ownerId: user.id,
       title: 'Title: ' + Math.floor(Math.random() * 100),
       content: 'This is my post'
@@ -24,14 +24,14 @@ export class AppController {
   async read(
     @Param('id') id: string,
   ) {
-    return await this.appService.getPostById(user, id);
+    return await this.appRepo.getPostById(user, id);
   }
 
   @Patch(':id')
   async update(
     @Param('id') id: string,
   ) {
-    return await this.appService.updatePost(user, id, {
+    return await this.appRepo.updatePost(user, id, {
       title: 'A new title: ' + Math.floor(Math.random() * 100),
     })
   }
@@ -40,6 +40,6 @@ export class AppController {
   async delete(
     @Param('id') id: string,
   ) {
-    await this.appService.deletePost(user, id);
+    await this.appRepo.deletePost(user, id);
   }
 }

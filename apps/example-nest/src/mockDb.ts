@@ -48,8 +48,8 @@ export class MockDb {
 
   private loadDb(): Record<string, any[]> {
     const defaultDb = {
-      users: [] as User[],
-      posts: [] as PostSchema[]
+      user: [] as User[],
+      post: [] as PostSchema[]
     };
 
     const dbPath = path.resolve(__dirname, '..', 'mock-db');
