@@ -37,6 +37,14 @@ export class Grant<U, C extends string, RMap extends ResourceMap<C>> {
       .delete(resourceType, ownershipCheck);
   }
 
+  manageAll<K extends C>(resourceType: K) {
+    return this
+      .create(resourceType)
+      .read(resourceType)
+      .update(resourceType)
+      .delete(resourceType);
+  }
+
   create<K extends C>(resourceType: K, check: PermissionCheck<U, RMap[K]> = defaultPermissionCheck) {
     this.permissions[resourceType] = this.permissions[resourceType] || {};
     this.permissions[resourceType].create = check as any;
